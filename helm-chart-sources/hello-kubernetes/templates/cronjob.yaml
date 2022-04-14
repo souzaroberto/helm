@@ -1,0 +1,35 @@
+{{- if .Values.cronjob.enabled }}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ include "hello-kubernetes.cronjob.name" . }}
+  labels:
+    {{- include "hello-kubernetes.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjob.job.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            job: {{ .Release.Name }}
+        spec:
+          containers:
+          - name: {{ .Chart.Name }}
+            image: "{{ .Values.cronjob.job.image.repository }}:{{ .Values.cronjob.job.image.tag }}"
+            command: {{ .Values.cronjob.job.command }}
+            {{- with .Values.cronjob.job.args }}
+            args:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cronjob.job.env }}
+            env:
+              {{- toYaml . | nindent 14 }}
+            {{- end -}}
+            {{- with .Values.cronjob.job.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            imagePullPolicy: {{ .Values.cronjob.job.image.imagePullPolicy }}
+          restartPolicy: {{ .Values.cronjob.job.restartPolicy }}
+{{- end }}

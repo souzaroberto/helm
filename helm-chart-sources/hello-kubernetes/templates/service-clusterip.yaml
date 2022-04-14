@@ -1,0 +1,19 @@
+{{- if .Values.service.enabled }}
+{{- if eq .Values.service.type "ClusterIP" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hello-kubernetes.fullname" . }}-{{ .Values.service.type | lower }}
+  labels:
+    {{- include "hello-kubernetes.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.container.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "hello-kubernetes.selectorLabels" . | nindent 4 }}
+{{- end }}
+{{- end }}

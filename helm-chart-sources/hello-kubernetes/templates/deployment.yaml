@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hello-kubernetes.fullname" . }}
+  labels:
+    {{- include "hello-kubernetes.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hello-kubernetes.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "hello-kubernetes.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "hello-kubernetes.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          {{- if ne (.Values.container.port | int) (8080 | int) }}
+          - name: PORT
+            value: "{{ .Values.container.port }}"
+          {{- end }}
+          {{- if .Values.message }}
+          - name: MESSAGE
+            value: "{{ .Values.message }}"
+          {{- end }}
+          {{- if .Values.ingress.enabled }}
+          - name: HANDLER_PATH_PREFIX
+            {{- if .Values.ingress.rewritePath }}
+            value: ""
+            {{- else }}
+            value: "{{ .Values.ingress.pathPrefix }}"
+            {{- end }}
+          - name: RENDER_PATH_PREFIX
+            value: "{{ .Values.ingress.pathPrefix }}"
+          {{- end }}
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KUBERNETES_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: CONTAINER_IMAGE
+            value: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.container.port }}
+              protocol: TCP
+          {{- if or .Values.container.probes }}
+          livenessProbe:
+            {{- if eq .Values.container.probes.type "http" }}
+            httpGet:
+              path: {{ .Values.container.probes.path }}
+              port: {{ .Values.container.probes.port }}
+            {{- end }}
+            {{- if eq .Values.container.probes.type "tcp" }}
+            tcpSocket:
+              port: {{ .Values.container.probes.port }}
+            {{- end }}
+          {{- end }}
+            initialDelaySeconds: {{ .Values.container.probes.livenessDelay }}
+            periodSeconds: {{ .Values.container.probes.livenessPeriodSeconds }}
+          {{- if or .Values.container.probes }}
+          readinessProbe:
+            {{- if eq .Values.container.probes.type "http" }}
+            httpGet:
+              path: {{ .Values.container.probes.path }}
+              port: {{ .Values.container.probes.port }}
+            {{- end }}
+            {{- if eq .Values.container.probes.type "tcp" }}
+            tcpSocket:
+              port: {{ .Values.container.probes.port }}
+            {{- end }}
+          {{- end }}
+            initialDelaySeconds: {{ .Values.container.probes.readinessDelay }}
+            periodSeconds: {{ .Values.container.probes.readinessPeriodSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
